@@ -1,125 +1,199 @@
 # Simple QoS Priority Controller using SDN
 
-## 📌 Objective
+##  Project Overview
 
-To demonstrate Quality of Service (QoS) in a Software Defined Network (SDN) by prioritizing traffic and analyzing its impact on network latency and performance.
-
----
-
-## 🛠 Tools Used
-
-* Mininet (network emulator)
-* POX Controller (SDN controller)
-* Ubuntu (Virtual Machine)
+This project demonstrates **Quality of Service (QoS)** using **Software Defined Networking (SDN)**.
+A POX controller is used to install **priority-based flow rules** in a Mininet network so that certain traffic is treated as more important than others.
 
 ---
 
-## 🌐 Network Topology
+##  Objective
 
-* Single switch topology with 3 hosts:
-
-  * h1, h2, h3
-* All hosts connected to one switch (s1)
+* Prioritize selected network traffic using SDN
+* Implement QoS using OpenFlow rules
+* Analyze how priority affects packet forwarding
 
 ---
 
-## ⚙️ Steps to Execute
+##  Key Concept
 
-### 1. Start POX Controller
+In this project:
 
-```bash
-cd pox
-./pox.py forwarding.l2_learning
+* Traffic from **h1 → h3** is given **high priority**
+* Traffic from **h2 → h3** is given **low priority**
+
+This is achieved by assigning different **flow rule priorities** in the switch.
+
+---
+
+##  Network Topology
+
+```
+h1 ----\
+        \
+h2 ----- s1 ----- h3
+        /
+   POX Controller
 ```
 
-### 2. Start Mininet
+* **h1, h2** → Clients
+* **h3** → Server
+* **s1** → OpenFlow switch
+* **POX** → SDN Controller
 
-(Open a new terminal)
+---
 
-```bash
-sudo mn --topo single,3 --controller remote
+##  Technologies Used
+
+* **Mininet** – Network emulation
+* **POX Controller** – SDN control logic
+* **OpenFlow Protocol** – Controller-switch communication
+* **Python** – Controller implementation
+
+---
+
+##  How It Works
+
+### 1. Controller Initialization
+
+* POX controller starts and waits for switch connection
+
+### 2. Switch Connection
+
+* Mininet switch connects to POX
+* `ConnectionUp` event is triggered
+
+### 3. Flow Rule Installation
+
+Controller installs 4 flow rules:
+
+| Flow    | Description           | Priority |
+| ------- | --------------------- | -------- |
+| h1 → h3 | High priority traffic | 100      |
+| h2 → h3 | Low priority traffic  | 10       |
+| h3 → h1 | Return traffic        | 100      |
+| h3 → h2 | Return traffic        | 10       |
+
+---
+
+## Flow Table Example
+
+```
+priority=100,in_port=1 actions=output:3
+priority=10,in_port=2 actions=output:3
 ```
 
 ---
 
-## 🧪 Test Scenarios
+##  Execution Steps
 
-### 🔹 Test 1: Basic Connectivity
-
-```bash
-pingall
-```
-
-* All hosts successfully communicate
-* 0% packet loss observed
-
----
-
-### 🔹 Test 2: Normal Network (Low Traffic)
+### Step 1: Start POX Controller
 
 ```bash
-h1 ping h2
+cd ~/pox
+python3 pox.py misc.qos_controller
 ```
-
-* Observed low latency (RTT values are small)
 
 ---
 
-### 🔹 Test 3: Congested Network (High Traffic)
+### Step 2: Start Mininet
 
 ```bash
-h2 iperf -s &
-h3 iperf -c h2 &
-h1 ping h2
+sudo mn -c
+sudo mn --topo single,3 --mac --switch ovsk --controller remote
 ```
-
-* Increased latency observed
-* Due to heavy background traffic
 
 ---
 
-### 🔹 Test 4: Throughput Measurement
+### Step 3: Test Connectivity
 
 ```bash
-h1 iperf -c h2
+h1 ping -c 5 h3
+h2 ping -c 5 h3
 ```
-
-* Measures bandwidth between hosts
 
 ---
 
-### 🔹 Test 5: Flow Table Inspection
+### Step 4: Verify Flow Rules
 
 ```bash
-dpctl dump-flows
+sh ovs-ofctl dump-flows s1
 ```
 
-* Displays flow rules installed by controller
+---
+
+## Observations
+
+* All hosts can communicate successfully
+* Flow table shows different priorities:
+
+  * `priority=100` for h1
+  * `priority=10` for h2
+* Ping latency is similar due to lack of real congestion in Mininet
 
 ---
 
-## 📊 Observations
-
-* ICMP (ping) traffic shows low latency under normal conditions
-* TCP (iperf) generates heavy traffic and increases delay
-* Under congestion, ping latency increases significantly
-* Flow rules are dynamically installed by the controller
 
 ---
 
-## 📌 QoS Explanation
+##  Limitations
 
-* ICMP traffic is **latency-sensitive** (high priority)
-* TCP traffic is **bandwidth-intensive** (lower priority)
-* When congestion is introduced, delay-sensitive traffic is affected
-* This demonstrates the importance of QoS in SDN
+* Mininet does not simulate real network congestion
+* QoS effect is visible in flow rules, not latency
 
 ---
 
-## ✅ Conclusion
+##  Future Improvements
 
-This project demonstrates how an SDN controller manages network traffic using flow rules.
-By introducing congestion, we observed changes in latency, showing the effect of traffic prioritization and QoS in networks.
+* Add bandwidth control using `tc`
+* Implement dynamic QoS policies
+* Extend to multiple switches
+* Integrate real-time traffic monitoring
+
+---
+
+##  Conclusion
+
+This project successfully demonstrates how SDN can be used to implement QoS by assigning different priorities to traffic flows using OpenFlow rules. It highlights the flexibility and programmability of SDN-based networks.
+
+---
+
+## 📊 Scalability Performance Evaluation
+
+To evaluate the scalability of the QoS controller, the system behavior is analyzed for increasing number of hosts. Due to system limitations, large-scale results are theoretical and based on expected SDN behavior.
+
+### 🔢 Test Scenarios
+
+* Small scale → 10 hosts
+* Medium scale → 100 hosts
+* Large scale → 1000 hosts
+* Very large scale → 10000 hosts
+
+---
+
+### 📋 Performance Table
+
+```
++------------+------------------+----------------------+------------------------+-----------------------------+
+| Hosts      | Flow Entries     | Controller Load      | Avg Latency (Expected) | QoS Effectiveness           |
++------------+------------------+----------------------+------------------------+-----------------------------+
+| 10         | ~20              | Low                  | ~0.2 ms                | Clearly visible             |
+| 100        | ~200             | Moderate             | ~0.5 ms                | Maintained                  |
+| 1000       | ~2000            | High                 | ~1–2 ms                | Slight degradation          |
+| 10000      | ~20000           | Very High            | ~5–10 ms               | Reduced but functional      |
++------------+------------------+----------------------+------------------------+-----------------------------+
+```
+
+---
+
+### 📈 Observations
+
+* Flow table size increases linearly with number of hosts
+* Controller processing load increases significantly at scale
+* Latency increases due to control overhead
+* QoS priority mechanism continues to function correctly
+
+---
 
 ---
 
@@ -132,12 +206,4 @@ By introducing congestion, we observed changes in latency, showing the effect of
 
 
 
----
-
-## 🎯 Key Learning
-
-* Understanding SDN architecture
-* Flow rule installation
-* Traffic behavior analysis
-* Importance of QoS in networks
 
